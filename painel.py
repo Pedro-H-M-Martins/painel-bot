@@ -8,7 +8,7 @@ from datetime import datetime
 intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True  # <-- ESSENCIAL para !comandos
-bot = commands.Bot(command_prefix="!", intents=intents))
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 # IDs configuráveis
 CANAL_PAINEL_ID = 123456789012345678
@@ -163,3 +163,4 @@ async def atualizar_painel(guild, acao=None):
 
 # Rodando o bot
 bot.run(os.environ['TOKEN'])
+
