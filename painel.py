@@ -11,7 +11,7 @@ intents.message_content = True  # <-- ESSENCIAL para !comandos
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # IDs configuráveis
-CANAL_PAINEL_ID = 123456789012345678
+CANAL_PAINEL_ID = 1425995003095678996
 MENSAGEM_PAINEL_ID = 987654321098765432
 
 # Exemplo de cargos
@@ -163,4 +163,5 @@ async def atualizar_painel(guild, acao=None):
 
 # Rodando o bot
 bot.run(os.environ['TOKEN'])
+
 
