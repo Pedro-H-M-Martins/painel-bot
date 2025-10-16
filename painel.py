@@ -8,6 +8,7 @@ from flask import Flask
 # --- Configurações ---
 intents = discord.Intents.default()
 intents.members = True
+intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Canais e cargos
@@ -189,3 +190,4 @@ def keep_alive():
 
 keep_alive()
 bot.run(os.environ['TOKEN'])
+
