@@ -4,12 +4,15 @@ from discord import ui
 import os
 from datetime import datetime
 
-intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="!", intents=intents)
+# Usar somente intents necessários
+intents = discord.Intents.default()
+intents.members = True
+intents.message_content = True  # <-- ESSENCIAL para !comandos
+bot = commands.Bot(command_prefix="!", intents=intents))
 
 # IDs configuráveis
-CANAL_PAINEL_ID = 123456789012345678  # ID do canal do painel
-MENSAGEM_PAINEL_ID = 987654321098765432  # ID da mensagem do painel
+CANAL_PAINEL_ID = 123456789012345678
+MENSAGEM_PAINEL_ID = 987654321098765432
 
 # Exemplo de cargos
 CARGOS = [
@@ -31,10 +34,10 @@ logs_acoes = []
 def criar_embed_painel(guild):
     embed = discord.Embed(
         title="4º BpChoque – Painel de Gerenciamento",
-        color=0x1ABC9C  # verde profissional
+        color=0x1ABC9C
     )
 
-    # Agrupar membros por cargo
+    # Membros agrupados por cargo (sem mostrar status online)
     for cargo in CARGOS:
         membros_cargo = [m.name for m in guild.members if not m.bot and cargo["nome"] in [r.name for r in m.roles]]
         valor = "\n".join(membros_cargo) if membros_cargo else "Nenhum membro"
@@ -42,11 +45,7 @@ def criar_embed_painel(guild):
 
     # Últimas ações
     if logs_acoes:
-        embed.add_field(
-            name="Últimas Ações",
-            value="\n".join(logs_acoes[-10:]),  # últimas 10 ações
-            inline=False
-        )
+        embed.add_field(name="Últimas Ações", value="\n".join(logs_acoes[-10:]), inline=False)
     else:
         embed.add_field(name="Últimas Ações", value="Nenhuma ação registrada.", inline=False)
 
@@ -73,7 +72,6 @@ class MembroDropdown(ui.Select):
     async def callback(self, interaction: discord.Interaction):
         membro_id = int(self.values[0])
         membro = self.view.guild.get_member(membro_id)
-        # Abre Modal para alterar cargo ou curso do membro
         await interaction.response.send_modal(AlterarModal(membro))
 
 # Modal para alterar cargo ou curso
@@ -81,16 +79,12 @@ class AlterarModal(ui.Modal, title="Alterar Cargo / Curso"):
     def __init__(self, membro):
         super().__init__()
         self.membro = membro
-
-        # Dropdown de cargos
         self.cargo_select = ui.Select(
             placeholder="Escolha um cargo",
             options=[discord.SelectOption(label=c['nome'], value=str(c['id'])) for c in CARGOS],
             custom_id="modal_cargo"
         )
         self.add_item(self.cargo_select)
-
-        # Dropdown de cursos
         self.curso_select = ui.Select(
             placeholder="Escolha um curso",
             options=[discord.SelectOption(label=c['nome'], value=str(c['id'])) for c in CURSOS],
@@ -99,28 +93,21 @@ class AlterarModal(ui.Modal, title="Alterar Cargo / Curso"):
         self.add_item(self.curso_select)
 
     async def on_submit(self, interaction: discord.Interaction):
-        # Altera cargo
         cargo_id = int(self.cargo_select.values[0])
         cargo_nome = next((c['nome'] for c in CARGOS if c['id'] == cargo_id), "Desconhecido")
         cargo_obj = discord.utils.get(self.membro.guild.roles, name=cargo_nome)
         if cargo_obj:
-            # Remove outros cargos do painel se existirem
             cargos_ids = [c['id'] for c in CARGOS]
             cargos_objs = [discord.utils.get(self.membro.guild.roles, id=i) for i in cargos_ids]
             for r in cargos_objs:
                 if r in self.membro.roles:
                     await self.membro.remove_roles(r)
             await self.membro.add_roles(cargo_obj)
-        
-        # Altera curso (a lógica depende de como você gerencia cursos)
+
         curso_id = int(self.curso_select.values[0])
         curso_nome = next((c['nome'] for c in CURSOS if c['id'] == curso_id), "Desconhecido")
-        # Aqui você pode registrar curso em algum banco ou role, dependendo do seu sistema
-
-        # Registrar log
         logs_acoes.append(f"{self.membro.name} alterado para {cargo_nome} / {curso_nome}")
         await atualizar_painel(self.membro.guild)
-
         await interaction.response.send_message(f"{self.membro.name} atualizado: {cargo_nome} / {curso_nome}", ephemeral=True)
 
 # Dropdown de cargos
@@ -175,4 +162,4 @@ async def atualizar_painel(guild, acao=None):
     await mensagem.edit(embed=embed, view=view)
 
 # Rodando o bot
-bot.run(os.environ['DISCORD_TOKEN'])
+bot.run(os.environ['TOKEN'])
