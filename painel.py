@@ -41,9 +41,17 @@ class PainelGerenciamento(View):
         self.update_member_select()
 
         # Botões principais
-        self.add_item(Button(label="Excluir", style=discord.ButtonStyle.danger, custom_id="btn_excluir", callback=self.excluir))
-        self.add_item(Button(label="Promover", style=discord.ButtonStyle.success, custom_id="btn_promover", callback=self.promover))
-        self.add_item(Button(label="Gerenciar Cursos", style=discord.ButtonStyle.secondary, custom_id="btn_cursos", callback=self.gerenciar_cursos))
+        btn_excluir = Button(label="Excluir", style=discord.ButtonStyle.danger, custom_id="btn_excluir")
+        btn_excluir.callback = self.excluir
+        self.add_item(btn_excluir)
+
+        btn_promover = Button(label="Promover", style=discord.ButtonStyle.success, custom_id="btn_promover")
+        btn_promover.callback = self.promover
+        self.add_item(btn_promover)
+
+        btn_cursos = Button(label="Gerenciar Cursos", style=discord.ButtonStyle.secondary, custom_id="btn_cursos")
+        btn_cursos.callback = self.gerenciar_cursos
+        self.add_item(btn_cursos)
 
     def update_member_select(self):
         """Atualiza a lista de membros no dropdown"""
