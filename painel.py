@@ -4,40 +4,37 @@ from discord import ui
 import os
 from datetime import datetime
 
-# Usar somente intents necessários
+# --- INTENTS ---
 intents = discord.Intents.default()
 intents.members = True
-intents.message_content = True  # <-- ESSENCIAL para !comandos
+intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# IDs configuráveis
+# --- CONFIGURAÇÃO ---
 CANAL_PAINEL_ID = 1425995003095678996
-MENSAGEM_PAINEL_ID = 987654321098765432
+MENSAGEM_PAINEL_ID = 987654321098765432  # Substitua se criar nova mensagem
 
-# Exemplo de cargos
 CARGOS = [
     {"nome": "Soldado", "id": 111111111111111111},
     {"nome": "Cabo", "id": 222222222222222222},
     {"nome": "Sargento", "id": 333333333333333333},
 ]
 
-# Exemplo de cursos
 CURSOS = [
     {"nome": "Curso Básico", "id": 101},
     {"nome": "Curso Avançado", "id": 102},
 ]
 
-# Logs de ações
 logs_acoes = []
 
-# Função para criar embed do painel
+# --- FUNÇÕES AUXILIARES ---
 def criar_embed_painel(guild):
     embed = discord.Embed(
         title="4º BpChoque – Painel de Gerenciamento",
-        color=0x1ABC9C
+        color=0x145A32
     )
 
-    # Membros agrupados por cargo (sem mostrar status online)
+    # Membros por cargo
     for cargo in CARGOS:
         membros_cargo = [m.name for m in guild.members if not m.bot and cargo["nome"] in [r.name for r in m.roles]]
         valor = "\n".join(membros_cargo) if membros_cargo else "Nenhum membro"
@@ -52,18 +49,38 @@ def criar_embed_painel(guild):
     embed.set_footer(text=f"Servidor: {guild.name} | Atualizado em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
     return embed
 
-# View principal do painel
+async def atualizar_painel(guild, acao=None):
+    canal = bot.get_channel(CANAL_PAINEL_ID)
+    if canal is None:
+        print("❌ Canal do painel não encontrado.")
+        return
+
+    try:
+        mensagem = await canal.fetch_message(MENSAGEM_PAINEL_ID)
+    except discord.NotFound:
+        mensagem = await canal.send("Criando painel...")
+
+    if acao:
+        logs_acoes.append(acao)
+
+    embed = criar_embed_painel(guild)
+    view = PainelView(guild)
+    await mensagem.edit(embed=embed, view=view)
+    print("✅ Painel atualizado.")
+
+# --- INTERFACE DO PAINEL ---
 class PainelView(ui.View):
     def __init__(self, guild):
         super().__init__(timeout=None)
         self.guild = guild
+        # Dropdowns
         self.add_item(MembroDropdown(guild))
         self.add_item(CargoDropdown())
         self.add_item(CursoDropdown())
+        # Barra de ações inferior
         self.add_item(ui.Button(label="Aprovar", style=discord.ButtonStyle.green, custom_id="acao_aprovar"))
         self.add_item(ui.Button(label="Remover", style=discord.ButtonStyle.red, custom_id="acao_remover"))
 
-# Dropdown de membros com autocomplete
 class MembroDropdown(ui.Select):
     def __init__(self, guild):
         membros = [discord.SelectOption(label=m.name, value=str(m.id)) for m in guild.members if not m.bot]
@@ -74,7 +91,6 @@ class MembroDropdown(ui.Select):
         membro = self.view.guild.get_member(membro_id)
         await interaction.response.send_modal(AlterarModal(membro))
 
-# Modal para alterar cargo ou curso
 class AlterarModal(ui.Modal, title="Alterar Cargo / Curso"):
     def __init__(self, membro):
         super().__init__()
@@ -106,11 +122,11 @@ class AlterarModal(ui.Modal, title="Alterar Cargo / Curso"):
 
         curso_id = int(self.curso_select.values[0])
         curso_nome = next((c['nome'] for c in CURSOS if c['id'] == curso_id), "Desconhecido")
+
         logs_acoes.append(f"{self.membro.name} alterado para {cargo_nome} / {curso_nome}")
         await atualizar_painel(self.membro.guild)
         await interaction.response.send_message(f"{self.membro.name} atualizado: {cargo_nome} / {curso_nome}", ephemeral=True)
 
-# Dropdown de cargos
 class CargoDropdown(ui.Select):
     def __init__(self):
         options = [discord.SelectOption(label=c["nome"], value=str(c["id"])) for c in CARGOS]
@@ -121,7 +137,6 @@ class CargoDropdown(ui.Select):
         cargo_nome = next((c["nome"] for c in CARGOS if c["id"] == cargo_id), "Desconhecido")
         await interaction.response.send_message(f"Cargo selecionado: {cargo_nome}", ephemeral=True)
 
-# Dropdown de cursos
 class CursoDropdown(ui.Select):
     def __init__(self):
         options = [discord.SelectOption(label=c["nome"], value=str(c["id"])) for c in CURSOS]
@@ -132,17 +147,12 @@ class CursoDropdown(ui.Select):
         curso_nome = next((c["nome"] for c in CURSOS if c["id"] == curso_id), "Desconhecido")
         await interaction.response.send_message(f"Curso selecionado: {curso_nome}", ephemeral=True)
 
-# Comando para enviar ou atualizar o painel
+# --- EVENTOS E COMANDOS ---
 @bot.command()
 async def painel(ctx):
-    canal = bot.get_channel(CANAL_PAINEL_ID)
-    mensagem = await canal.fetch_message(MENSAGEM_PAINEL_ID)
-    embed = criar_embed_painel(ctx.guild)
-    view = PainelView(ctx.guild)
-    await mensagem.edit(embed=embed, view=view)
+    await atualizar_painel(ctx.guild)
     await ctx.send("Painel atualizado!", delete_after=5)
 
-# Atualização automática ao entrar ou sair
 @bot.event
 async def on_member_join(member):
     await atualizar_painel(member.guild, f"{member.name} entrou.")
@@ -151,17 +161,5 @@ async def on_member_join(member):
 async def on_member_remove(member):
     await atualizar_painel(member.guild, f"{member.name} removido.")
 
-# Função para atualizar painel
-async def atualizar_painel(guild, acao=None):
-    canal = bot.get_channel(CANAL_PAINEL_ID)
-    mensagem = await canal.fetch_message(MENSAGEM_PAINEL_ID)
-    if acao:
-        logs_acoes.append(acao)
-    embed = criar_embed_painel(guild)
-    view = PainelView(guild)
-    await mensagem.edit(embed=embed, view=view)
-
-# Rodando o bot
+# --- EXECUÇÃO ---
 bot.run(os.environ['TOKEN'])
-
-
