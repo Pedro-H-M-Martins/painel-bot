@@ -149,9 +149,9 @@ async def painel(ctx):
     if ctx.channel.id != CANAL_PAINEL:
         await ctx.send("Este comando só funciona no canal do painel.", delete_after=10)
         return
-    if not any(str(c.id) in CARGOS_AUTORIZADOS or c.name in CARGOS_AUTORIZADOS for c in ctx.author.roles):
-        await ctx.send("Você não tem permissão para usar o painel.", delete_after=10)
-        return
+    if ctx.author != ctx.guild.owner and not any(str(c.id) in CARGOS_AUTORIZADOS or c.name in CARGOS_AUTORIZADOS for c in ctx.author.roles):
+    await ctx.send("Você não tem permissão para usar o painel.", delete_after=10)
+    return
 
     view = PainelGerenciamento(ctx.guild)
     painel_message = await ctx.send("💼 **Painel de Gerenciamento de Membros**", view=view)
