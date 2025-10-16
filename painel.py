@@ -142,10 +142,10 @@ class PainelGerenciamento(View):
 # --- Comando para abrir painel ---
 @bot.command()
 async def painel(ctx):
-    if ctx.channel.name != CANAL_PAINEL:
+    if ctx.channel.id != CANAL_PAINEL:
         await ctx.send("Este comando só funciona no canal do painel.", delete_after=10)
         return
-    if not any(c.name in CARGOS_AUTORIZADOS for c in ctx.author.roles):
+    if not any(str(c.id) in CARGOS_AUTORIZADOS or c.name in CARGOS_AUTORIZADOS for c in ctx.author.roles):
         await ctx.send("Você não tem permissão para usar o painel.", delete_after=10)
         return
 
@@ -153,17 +153,33 @@ async def painel(ctx):
     await ctx.send("💼 **Painel de Gerenciamento de Membros**", view=view)
 
 
-# --- Task para atualizar dropdown de membros a cada 5 minutos ---
-@tasks.loop(minutes=5)
-async def atualizar_membros():
-    for view in bot.cached_views:
-        if isinstance(view, PainelGerenciamento):
-            view.update_member_select()
+# --- Eventos para manter dropdown atualizado ---
+@bot.event
+async def on_member_join(member):
+    channel = bot.get_channel(CANAL_PAINEL)
+    if channel:
+        async for msg in channel.history(limit=50):
+            if msg.author == bot.user:
+                for item in msg.components:
+                    for child in item.children:
+                        if isinstance(child, Select):
+                            options = [discord.SelectOption(label=m.display_name, value=str(m.id)) for m in member.guild.members if not m.bot]
+                            child.options = options
+                            await msg.edit(view=msg.components[0]._view)
+
 
 @bot.event
-async def on_ready():
-    print(f"Bot online como {bot.user}")
-    atualizar_membros.start()
+async def on_member_remove(member):
+    channel = bot.get_channel(CANAL_PAINEL)
+    if channel:
+        async for msg in channel.history(limit=50):
+            if msg.author == bot.user:
+                for item in msg.components:
+                    for child in item.children:
+                        if isinstance(child, Select):
+                            options = [discord.SelectOption(label=m.display_name, value=str(m.id)) for m in member.guild.members if not m.bot]
+                            child.options = options
+                            await msg.edit(view=msg.components[0]._view)
 
 
 # --- Keep alive com Flask ---
@@ -182,4 +198,3 @@ def keep_alive():
 
 keep_alive()
 bot.run(os.environ['TOKEN'])
-
