@@ -11,11 +11,11 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Canais e cargos
-CANAL_PAINEL = "Painel-Gerencial"
-CARGOS_AUTORIZADOS = ["Comandante", "Subcomandante", "Oficial Superior"]
+CANAL_PAINEL = 1425995003095678996
+CARGOS_AUTORIZADOS = ["1422801198158844045", "Subcomandante", "Oficial Superior"]
 
 # Cargos de patente de exemplo
-PATENTES = ["Soldado", "Cabo", "Sargento", "Tenente", "Capitão"]
+PATENTES = ["1422801678939324427", "1422801198158844045", "Sargento", "Tenente", "Capitão"]
 # Cursos de exemplo
 CURSOS = ["Curso Tático", "Curso Operacional", "Curso Avançado"]
 # Cargo estagiário
@@ -25,7 +25,7 @@ ESTAGIARIO = "Estagiário"
 MOTIVOS_EXCLUSAO = ["Inatividade", "Conduta inadequada", "Pedido próprio"]
 
 # Canal de logs
-LOG_CHANNEL_ID = 123456789012345678  # Substitua pelo ID real do canal de logs
+LOG_CHANNEL_ID = 1425936662223130794  # Substitua pelo ID real do canal de logs
 
 # --- Painel ---
 class PainelGerenciamento(View):
@@ -182,3 +182,4 @@ def keep_alive():
 
 keep_alive()
 bot.run(os.environ['TOKEN'])
+
