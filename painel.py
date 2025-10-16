@@ -8,7 +8,7 @@ from flask import Flask
 # --- Configurações ---
 intents = discord.Intents.default()
 intents.members = True
-intents.message_content = True
+intents.message_content = True  # <-- ESSENCIAL para !comandos
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Canais e cargos
@@ -147,6 +147,7 @@ class PainelGerenciamento(View):
 @bot.command()
 async def painel(ctx):
     global painel_message
+    print(f"Comando !painel chamado por {ctx.author}")  # <-- DEBUG
     if ctx.channel.id != CANAL_PAINEL:
         await ctx.send("Este comando só funciona no canal do painel.", delete_after=10)
         return
@@ -156,6 +157,7 @@ async def painel(ctx):
 
     view = PainelGerenciamento(ctx.guild)
     painel_message = await ctx.send("💼 **Painel de Gerenciamento de Membros**", view=view)
+    print("Painel enviado com sucesso!")  # <-- DEBUG
 
 
 # --- Eventos para manter dropdown atualizado usando referência direta ---
@@ -190,4 +192,3 @@ def keep_alive():
 
 keep_alive()
 bot.run(os.environ['TOKEN'])
-
