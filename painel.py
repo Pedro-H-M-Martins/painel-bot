@@ -175,4 +175,5 @@ async def atualizar_painel(guild, acao=None):
     await mensagem.edit(embed=embed, view=view)
 
 # Rodando o bot
-bot.run(os.environ['DISCORD_TOKEN'])
+bot.run(os.environ['TOKEN'])
+
