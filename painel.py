@@ -10,7 +10,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # --- CONFIGURAÇÃO ---
-CANAL_LOGS_ID = 1425995003095678997  # Canal de logs
+CANAL_LOGS_ID = 1425936662223130794  # Canal de logs
 PATENTES = [
     {"nome": "Soldado", "id": 111111111111111111},
     {"nome": "Cabo", "id": 222222222222222222},
@@ -158,3 +158,4 @@ async def on_member_remove(member):
 
 # --- EXECUÇÃO ---
 bot.run(os.environ['TOKEN'])
+
