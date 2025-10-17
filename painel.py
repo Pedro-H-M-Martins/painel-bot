@@ -7,9 +7,9 @@ import os
 from datetime import datetime
 
 # ---------------- CONFIGURAÇÕES ----------------
-TOKEN = os.environ['TOKEN']  # Token do bot
-CANAL_PAINEL_ID = 1425995003095678996  # Canal onde ficará o painel
-CANAL_LOGS_ID = 1425936662223130794   # Canal de logs separado
+TOKEN = os.environ['TOKEN']
+CANAL_PAINEL_ID = 1425995003095678996  # Canal do painel
+CANAL_LOGS_ID = 1425936662223130794   # Canal de logs
 
 CARGOS = [
     {"nome": "Soldado", "id": 111111111111111111},
@@ -71,27 +71,12 @@ class PainelView(ui.View):
         super().__init__(timeout=None)
         self.guild = guild
 
-        # ActionRow 1: Dropdown de membro
-        row1 = ui.ActionRow()
-        row1.add_item(MembroDropdown(guild))
-        self.add_item(row1)
-
-        # ActionRow 2: Dropdown de patente
-        row2 = ui.ActionRow()
-        row2.add_item(PatenteDropdown())
-        self.add_item(row2)
-
-        # ActionRow 3: Dropdown de curso
-        row3 = ui.ActionRow()
-        row3.add_item(CursoDropdown())
-        self.add_item(row3)
-
-        # ActionRow 4: Botões Confirmar e Remover
-        row4 = ui.ActionRow()
-        row4.add_item(ui.Button(label="Confirmar", style=discord.ButtonStyle.green, custom_id="acao_confirmar"))
-        row4.add_item(ui.Button(label="Remover", style=discord.ButtonStyle.red, custom_id="acao_remover"))
-        self.add_item(row4)
-
+        # Adiciona os componentes diretamente (Discord.py v2)
+        self.add_item(MembroDropdown(guild))
+        self.add_item(PatenteDropdown())
+        self.add_item(CursoDropdown())
+        self.add_item(ui.Button(label="Confirmar", style=discord.ButtonStyle.green, custom_id="acao_confirmar"))
+        self.add_item(ui.Button(label="Remover", style=discord.ButtonStyle.red, custom_id="acao_remover"))
 
 # ---------------- FUNÇÃO PARA ATUALIZAR PAINEL ----------------
 async def atualizar_painel(guild: discord.Guild):
@@ -134,24 +119,29 @@ async def on_interaction(interaction: discord.Interaction):
 
     # Identificar membro selecionado
     selected_member = None
-    for child in interaction.message.components[0].children:
-        if isinstance(child, ui.Select):
-            selected_member = guild.get_member(int(child.values[0]))
-            break
+    for child in interaction.message.components:
+        for comp in child.children:
+            if isinstance(comp, ui.Select) and comp.custom_id == "select_membro":
+                if comp.values:
+                    selected_member = guild.get_member(int(comp.values[0]))
+                break
 
     # Confirmar alterações (patente + curso)
     if custom_id == "acao_confirmar":
         if selected_member:
-            # Remover patente anterior + estagiário
-            cargos_remover = [c['nome'] for c in CARGOS]
-            cargos_remover.append("Estagiário")
+            # Remover patente anterior + Estagiário
+            cargos_remover = [c['nome'] for c in CARGOS] + ["Estagiário"]
             for cargo in cargos_remover:
                 role = discord.utils.get(guild.roles, name=cargo)
                 if role and role in selected_member.roles:
                     await selected_member.remove_roles(role)
 
             # Adicionar nova patente
-            patente_id = int(interaction.message.components[0].children[1].values[0])
+            for child in interaction.message.components:
+                for comp in child.children:
+                    if isinstance(comp, ui.Select) and comp.custom_id == "select_patente":
+                        patente_id = int(comp.values[0])
+                        break
             patente_nome = next((c['nome'] for c in CARGOS if c['id'] == patente_id), None)
             if patente_nome:
                 role = discord.utils.get(guild.roles, name=patente_nome)
@@ -159,7 +149,11 @@ async def on_interaction(interaction: discord.Interaction):
                     await selected_member.add_roles(role)
 
             # Curso
-            curso_id = int(interaction.message.components[1].children[0].values[0])
+            for child in interaction.message.components:
+                for comp in child.children:
+                    if isinstance(comp, ui.Select) and comp.custom_id == "select_curso":
+                        curso_id = int(comp.values[0])
+                        break
             curso_nome = next((c['nome'] for c in CURSOS if c['id'] == curso_id), None)
 
             await registrar_log(f"{selected_member.name} atualizado: {patente_nome} / {curso_nome}", guild)
@@ -180,4 +174,3 @@ async def on_interaction(interaction: discord.Interaction):
 
 # ---------------- RODAR BOT ----------------
 bot.run(TOKEN)
-
