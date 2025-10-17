@@ -9,7 +9,7 @@ from datetime import datetime
 # ---------------- CONFIGURAÇÕES ----------------
 TOKEN = os.environ['TOKEN']  # Token do bot
 CANAL_PAINEL_ID = 1425995003095678996  # Canal onde ficará o painel
-CANAL_LOGS_ID = 1425995003095678997   # Canal de logs separado
+CANAL_LOGS_ID = 1425936662223130794   # Canal de logs separado
 
 CARGOS = [
     {"nome": "Soldado", "id": 111111111111111111},
@@ -71,18 +71,27 @@ class PainelView(ui.View):
         super().__init__(timeout=None)
         self.guild = guild
 
-        # Linha 1: Membro + Patente
+        # ActionRow 1: Dropdown de membro
         row1 = ui.ActionRow()
         row1.add_item(MembroDropdown(guild))
-        row1.add_item(PatenteDropdown())
         self.add_item(row1)
 
-        # Linha 2: Curso + Botões
+        # ActionRow 2: Dropdown de patente
         row2 = ui.ActionRow()
-        row2.add_item(CursoDropdown())
-        row2.add_item(ui.Button(label="Confirmar", style=discord.ButtonStyle.green, custom_id="acao_confirmar"))
-        row2.add_item(ui.Button(label="Remover", style=discord.ButtonStyle.red, custom_id="acao_remover"))
+        row2.add_item(PatenteDropdown())
         self.add_item(row2)
+
+        # ActionRow 3: Dropdown de curso
+        row3 = ui.ActionRow()
+        row3.add_item(CursoDropdown())
+        self.add_item(row3)
+
+        # ActionRow 4: Botões Confirmar e Remover
+        row4 = ui.ActionRow()
+        row4.add_item(ui.Button(label="Confirmar", style=discord.ButtonStyle.green, custom_id="acao_confirmar"))
+        row4.add_item(ui.Button(label="Remover", style=discord.ButtonStyle.red, custom_id="acao_remover"))
+        self.add_item(row4)
+
 
 # ---------------- FUNÇÃO PARA ATUALIZAR PAINEL ----------------
 async def atualizar_painel(guild: discord.Guild):
@@ -171,3 +180,4 @@ async def on_interaction(interaction: discord.Interaction):
 
 # ---------------- RODAR BOT ----------------
 bot.run(TOKEN)
+
