@@ -2,7 +2,6 @@ import discord
 from discord.ext import commands
 from discord import ui
 import os
-from datetime import datetime
 
 # --- INTENTS ---
 intents = discord.Intents.default()
@@ -11,155 +10,132 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # --- CONFIGURAÇÃO ---
-CANAL_PAINEL_ID = 1425995003095678996
-MENSAGEM_PAINEL_ID = 987654321098765432  # Substitua se criar nova mensagem
+CANAL_LOGS_ID = 1425936662223130794  # Canal de logs
 
-CARGOS = [
+PATENTES = [
     {"nome": "Soldado", "id": 111111111111111111},
     {"nome": "Cabo", "id": 222222222222222222},
     {"nome": "Sargento", "id": 333333333333333333},
 ]
-
 CURSOS = [
     {"nome": "Curso Básico", "id": 101},
     {"nome": "Curso Avançado", "id": 102},
 ]
 
-logs_acoes = []
-
 # --- FUNÇÕES AUXILIARES ---
-def criar_embed_painel(guild):
-    embed = discord.Embed(
-        title="4º BpChoque – Painel de Gerenciamento",
-        color=0x145A32
-    )
+async def enviar_log(guild, mensagem_log):
+    canal_logs = bot.get_channel(CANAL_LOGS_ID)
+    if canal_logs:
+        await canal_logs.send(mensagem_log)
 
-    # Membros por cargo
-    for cargo in CARGOS:
-        membros_cargo = [m.name for m in guild.members if not m.bot and cargo["nome"] in [r.name for r in m.roles]]
-        valor = "\n".join(membros_cargo) if membros_cargo else "Nenhum membro"
-        embed.add_field(name=cargo['nome'], value=valor, inline=False)
+def filtrar_membros(guild, filtro):
+    filtro_lower = filtro.lower()
+    membros_filtrados = [m for m in guild.members if not m.bot and filtro_lower in m.name.lower()]
+    return membros_filtrados[:25]  # Limite de 25 para o dropdown
 
-    # Últimas ações
-    if logs_acoes:
-        embed.add_field(name="Últimas Ações", value="\n".join(logs_acoes[-10:]), inline=False)
-    else:
-        embed.add_field(name="Últimas Ações", value="Nenhuma ação registrada.", inline=False)
-
-    embed.set_footer(text=f"Servidor: {guild.name} | Atualizado em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
-    return embed
-
-async def atualizar_painel(guild, acao=None):
-    canal = bot.get_channel(CANAL_PAINEL_ID)
-    if canal is None:
-        print("❌ Canal do painel não encontrado.")
-        return
-
-    try:
-        mensagem = await canal.fetch_message(MENSAGEM_PAINEL_ID)
-    except discord.NotFound:
-        mensagem = await canal.send("Criando painel...")
-
-    if acao:
-        logs_acoes.append(acao)
-
-    embed = criar_embed_painel(guild)
-    view = PainelView(guild)
-    await mensagem.edit(embed=embed, view=view)
-    print("✅ Painel atualizado.")
-
-# --- INTERFACE DO PAINEL ---
-class PainelView(ui.View):
-    def __init__(self, guild):
-        super().__init__(timeout=None)
-        self.guild = guild
-        # Dropdowns
-        self.add_item(MembroDropdown(guild))
-        self.add_item(CargoDropdown())
-        self.add_item(CursoDropdown())
-        # Barra de ações inferior
-        self.add_item(ui.Button(label="Aprovar", style=discord.ButtonStyle.green, custom_id="acao_aprovar"))
-        self.add_item(ui.Button(label="Remover", style=discord.ButtonStyle.red, custom_id="acao_remover"))
-
-class MembroDropdown(ui.Select):
-    def __init__(self, guild):
-        membros = [discord.SelectOption(label=m.name, value=str(m.id)) for m in guild.members if not m.bot]
-        super().__init__(placeholder="Escolha um membro...", options=membros, custom_id="select_membro", min_values=1, max_values=1)
-
-    async def callback(self, interaction: discord.Interaction):
-        membro_id = int(self.values[0])
-        membro = self.view.guild.get_member(membro_id)
-        await interaction.response.send_modal(AlterarModal(membro))
-
-class AlterarModal(ui.Modal, title="Alterar Cargo / Curso"):
-    def __init__(self, membro):
+# --- MODAL PROFISSIONAL ---
+class PainelModal(ui.Modal, title="Painel de Gerenciamento 4º BpChoque"):
+    def __init__(self, guild, filtro_membro=""):
         super().__init__()
-        self.membro = membro
-        self.cargo_select = ui.Select(
-            placeholder="Escolha um cargo",
-            options=[discord.SelectOption(label=c['nome'], value=str(c['id'])) for c in CARGOS],
-            custom_id="modal_cargo"
+        self.guild = guild
+
+        # Dropdown de membros com filtro
+        membros_filtrados = filtrar_membros(guild, filtro_membro)
+        membros_opts = [discord.SelectOption(label=m.name, value=str(m.id)) for m in membros_filtrados]
+        self.membros_select = ui.Select(
+            placeholder="Escolha um membro...",
+            options=membros_opts,
+            min_values=1,
+            max_values=1
         )
-        self.add_item(self.cargo_select)
+        self.add_item(self.membros_select)
+
+        # Categoria: Alterar Patente
+        patentes_opts = [discord.SelectOption(label=p['nome'], value=str(p['id'])) for p in PATENTES]
+        self.patente_select = ui.Select(
+            placeholder="Alterar Patente",
+            options=patentes_opts,
+            min_values=1,
+            max_values=1
+        )
+        self.add_item(self.patente_select)
+
+        # Categoria: Alterar Curso
+        cursos_opts = [discord.SelectOption(label=c['nome'], value=str(c['id'])) for c in CURSOS]
         self.curso_select = ui.Select(
-            placeholder="Escolha um curso",
-            options=[discord.SelectOption(label=c['nome'], value=str(c['id'])) for c in CURSOS],
-            custom_id="modal_curso"
+            placeholder="Alterar Curso",
+            options=cursos_opts,
+            min_values=1,
+            max_values=1
         )
         self.add_item(self.curso_select)
 
+        # Botões de ação
+        self.aprovar = ui.Button(label="Aprovar", style=discord.ButtonStyle.green, custom_id="acao_aprovar")
+        self.remover = ui.Button(label="Remover", style=discord.ButtonStyle.red, custom_id="acao_remover")
+        self.excluir = ui.Button(label="Excluir", style=discord.ButtonStyle.danger, custom_id="acao_excluir")
+        self.add_item(self.aprovar)
+        self.add_item(self.remover)
+        self.add_item(self.excluir)
+
     async def on_submit(self, interaction: discord.Interaction):
-        cargo_id = int(self.cargo_select.values[0])
-        cargo_nome = next((c['nome'] for c in CARGOS if c['id'] == cargo_id), "Desconhecido")
-        cargo_obj = discord.utils.get(self.membro.guild.roles, name=cargo_nome)
-        if cargo_obj:
-            cargos_ids = [c['id'] for c in CARGOS]
-            cargos_objs = [discord.utils.get(self.membro.guild.roles, id=i) for i in cargos_ids]
-            for r in cargos_objs:
-                if r in self.membro.roles:
-                    await self.membro.remove_roles(r)
-            await self.membro.add_roles(cargo_obj)
+        membro_id = int(self.membros_select.values[0])
+        membro = self.guild.get_member(membro_id)
 
+        # ALTERAR PATENTE
+        patente_id = int(self.patente_select.values[0])
+        patente_nome = next((p['nome'] for p in PATENTES if p['id']==patente_id), "Desconhecido")
+        patente_obj = discord.utils.get(self.guild.roles, name=patente_nome)
+
+        if patente_obj:
+            cargos_a_remover = [discord.utils.get(self.guild.roles, name=r['nome']) for r in PATENTES]
+            estagiario = discord.utils.get(self.guild.roles, name="Estagiário")
+            if estagiario:
+                cargos_a_remover.append(estagiario)
+            for r in cargos_a_remover:
+                if r and r in membro.roles:
+                    await membro.remove_roles(r)
+            await membro.add_roles(patente_obj)
+
+        # ALTERAR CURSO
         curso_id = int(self.curso_select.values[0])
-        curso_nome = next((c['nome'] for c in CURSOS if c['id'] == curso_id), "Desconhecido")
+        curso_nome = next((c['nome'] for c in CURSOS if c['id']==curso_id), "Desconhecido")
 
-        logs_acoes.append(f"{self.membro.name} alterado para {cargo_nome} / {curso_nome}")
-        await atualizar_painel(self.membro.guild)
-        await interaction.response.send_message(f"{self.membro.name} atualizado: {cargo_nome} / {curso_nome}", ephemeral=True)
+        # LOG
+        acao_msg = f"{membro.name} atualizado: Patente={patente_nome} / Curso={curso_nome}"
+        await enviar_log(self.guild, acao_msg)
+        await interaction.response.send_message(f"{acao_msg}", ephemeral=True)
 
-class CargoDropdown(ui.Select):
-    def __init__(self):
-        options = [discord.SelectOption(label=c["nome"], value=str(c["id"])) for c in CARGOS]
-        super().__init__(placeholder="Escolha um cargo...", options=options, custom_id="select_cargo", min_values=1, max_values=1)
+# --- VIEW PARA ABRIR MODAL ---
+class PainelView(ui.View):
+    def __init__(self, guild, filtro_membro=""):
+        super().__init__(timeout=None)
+        self.guild = guild
+        self.filtro_membro = filtro_membro
+        self.add_item(ui.Button(label="Abrir Painel", style=discord.ButtonStyle.blurple, custom_id="abrir_modal"))
 
-    async def callback(self, interaction: discord.Interaction):
-        cargo_id = int(self.values[0])
-        cargo_nome = next((c["nome"] for c in CARGOS if c["id"] == cargo_id), "Desconhecido")
-        await interaction.response.send_message(f"Cargo selecionado: {cargo_nome}", ephemeral=True)
+    @ui.button(label="Abrir Painel", style=discord.ButtonStyle.blurple, custom_id="abrir_modal")
+    async def abrir_modal(self, button: ui.Button, interaction: discord.Interaction):
+        await interaction.response.send_modal(PainelModal(self.guild, self.filtro_membro))
 
-class CursoDropdown(ui.Select):
-    def __init__(self):
-        options = [discord.SelectOption(label=c["nome"], value=str(c["id"])) for c in CURSOS]
-        super().__init__(placeholder="Escolha um curso...", options=options, custom_id="select_curso", min_values=1, max_values=1)
-
-    async def callback(self, interaction: discord.Interaction):
-        curso_id = int(self.values[0])
-        curso_nome = next((c["nome"] for c in CURSOS if c["id"] == curso_id), "Desconhecido")
-        await interaction.response.send_message(f"Curso selecionado: {curso_nome}", ephemeral=True)
-
-# --- EVENTOS E COMANDOS ---
+# --- COMANDO ---
 @bot.command()
-async def painel(ctx):
-    await atualizar_painel(ctx.guild)
-    await ctx.send("Painel atualizado!", delete_after=5)
+async def painel(ctx, filtro: str = ""):
+    view = PainelView(ctx.guild, filtro)
+    await ctx.send("Clique para abrir o painel de gerenciamento:", view=view)
 
+# --- EVENTOS DE MEMBRO ---
 @bot.event
 async def on_member_join(member):
-    await atualizar_painel(member.guild, f"{member.name} entrou.")
+    canal_logs = bot.get_channel(CANAL_LOGS_ID)
+    if canal_logs:
+        await canal_logs.send(f"{member.name} entrou no servidor.")
 
 @bot.event
 async def on_member_remove(member):
-    await atualizar_painel(member.guild, f"{member.name} removido.")
+    canal_logs = bot.get_channel(CANAL_LOGS_ID)
+    if canal_logs:
+        await canal_logs.send(f"{member.name} foi removido do servidor.")
 
 # --- EXECUÇÃO ---
 bot.run(os.environ['TOKEN'])
