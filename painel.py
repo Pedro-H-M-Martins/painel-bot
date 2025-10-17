@@ -2,6 +2,8 @@ import discord
 from discord.ext import commands
 from discord import ui
 import os
+from flask import Flask
+from threading import Thread
 
 # --- INTENTS ---
 intents = discord.Intents.default()
@@ -21,6 +23,18 @@ CURSOS = [
     {"nome": "Curso Avançado", "id": 102},
 ]
 
+# --- FLASK PARA MANTER RENDER ATIVO ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot está online!"
+
+def run():
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
+
+Thread(target=run).start()
+
 # --- FUNÇÕES AUXILIARES ---
 async def enviar_log(guild, mensagem_log):
     canal_logs = bot.get_channel(CANAL_LOGS_ID)
@@ -30,7 +44,7 @@ async def enviar_log(guild, mensagem_log):
 def filtrar_membros(guild, filtro):
     filtro_lower = filtro.lower()
     membros_filtrados = [m for m in guild.members if not m.bot and filtro_lower in m.name.lower()]
-    return membros_filtrados[:25]  # Limite de 25 membros no dropdown
+    return membros_filtrados[:25]
 
 # --- MODAL PROFISSIONAL ---
 class PainelModal(ui.Modal, title="Painel de Gerenciamento 4º BpChoque"):
@@ -38,7 +52,7 @@ class PainelModal(ui.Modal, title="Painel de Gerenciamento 4º BpChoque"):
         super().__init__()
         self.guild = guild
 
-        # INPUT de filtro para membros (autocomplete real simulado)
+        # INPUT de filtro para membros
         self.filtro_input = ui.TextInput(
             label="Filtrar Membro (digite parte do nome)",
             placeholder="Ex: Pedro",
@@ -47,7 +61,7 @@ class PainelModal(ui.Modal, title="Painel de Gerenciamento 4º BpChoque"):
         )
         self.add_item(self.filtro_input)
 
-        # Dropdown de membros será preenchido dinamicamente ao abrir modal
+        # Dropdown de membros
         membros_filtrados = filtrar_membros(guild, filtro_membro)
         membros_opts = [discord.SelectOption(label=m.name, value=str(m.id)) for m in membros_filtrados]
         self.membros_select = ui.Select(
@@ -59,7 +73,7 @@ class PainelModal(ui.Modal, title="Painel de Gerenciamento 4º BpChoque"):
         )
         self.add_item(self.membros_select)
 
-        # Categoria: Alterar Patente
+        # Dropdown de patentes
         patentes_opts = [discord.SelectOption(label=p['nome'], value=str(p['id'])) for p in PATENTES]
         self.patente_select = ui.Select(
             placeholder="Alterar Patente",
@@ -70,7 +84,7 @@ class PainelModal(ui.Modal, title="Painel de Gerenciamento 4º BpChoque"):
         )
         self.add_item(self.patente_select)
 
-        # Categoria: Alterar Curso
+        # Dropdown de cursos
         cursos_opts = [discord.SelectOption(label=c['nome'], value=str(c['id'])) for c in CURSOS]
         self.curso_select = ui.Select(
             placeholder="Alterar Curso",
@@ -158,4 +172,3 @@ async def on_member_remove(member):
 
 # --- EXECUÇÃO ---
 bot.run(os.environ['TOKEN'])
-
