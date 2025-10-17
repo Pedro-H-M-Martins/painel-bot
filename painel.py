@@ -10,8 +10,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # --- CONFIGURAÇÃO ---
-CANAL_LOGS_ID = 1425936662223130794  # Canal de logs
-
+CANAL_LOGS_ID = 1425995003095678997  # Canal de logs
 PATENTES = [
     {"nome": "Soldado", "id": 111111111111111111},
     {"nome": "Cabo", "id": 222222222222222222},
@@ -31,7 +30,7 @@ async def enviar_log(guild, mensagem_log):
 def filtrar_membros(guild, filtro):
     filtro_lower = filtro.lower()
     membros_filtrados = [m for m in guild.members if not m.bot and filtro_lower in m.name.lower()]
-    return membros_filtrados[:25]  # Limite de 25 para o dropdown
+    return membros_filtrados[:25]  # Limite de 25 membros no dropdown
 
 # --- MODAL PROFISSIONAL ---
 class PainelModal(ui.Modal, title="Painel de Gerenciamento 4º BpChoque"):
@@ -39,14 +38,24 @@ class PainelModal(ui.Modal, title="Painel de Gerenciamento 4º BpChoque"):
         super().__init__()
         self.guild = guild
 
-        # Dropdown de membros com filtro
+        # INPUT de filtro para membros (autocomplete real simulado)
+        self.filtro_input = ui.TextInput(
+            label="Filtrar Membro (digite parte do nome)",
+            placeholder="Ex: Pedro",
+            required=False,
+            max_length=50
+        )
+        self.add_item(self.filtro_input)
+
+        # Dropdown de membros será preenchido dinamicamente ao abrir modal
         membros_filtrados = filtrar_membros(guild, filtro_membro)
         membros_opts = [discord.SelectOption(label=m.name, value=str(m.id)) for m in membros_filtrados]
         self.membros_select = ui.Select(
             placeholder="Escolha um membro...",
             options=membros_opts,
             min_values=1,
-            max_values=1
+            max_values=1,
+            custom_id="painel_select_membros"
         )
         self.add_item(self.membros_select)
 
@@ -56,7 +65,8 @@ class PainelModal(ui.Modal, title="Painel de Gerenciamento 4º BpChoque"):
             placeholder="Alterar Patente",
             options=patentes_opts,
             min_values=1,
-            max_values=1
+            max_values=1,
+            custom_id="painel_select_patente"
         )
         self.add_item(self.patente_select)
 
@@ -66,21 +76,31 @@ class PainelModal(ui.Modal, title="Painel de Gerenciamento 4º BpChoque"):
             placeholder="Alterar Curso",
             options=cursos_opts,
             min_values=1,
-            max_values=1
+            max_values=1,
+            custom_id="painel_select_curso"
         )
         self.add_item(self.curso_select)
 
         # Botões de ação
-        self.aprovar = ui.Button(label="Aprovar", style=discord.ButtonStyle.green, custom_id="acao_aprovar")
-        self.remover = ui.Button(label="Remover", style=discord.ButtonStyle.red, custom_id="acao_remover")
-        self.excluir = ui.Button(label="Excluir", style=discord.ButtonStyle.danger, custom_id="acao_excluir")
+        self.aprovar = ui.Button(label="Aprovar", style=discord.ButtonStyle.green, custom_id="painel_btn_aprovar")
+        self.remover = ui.Button(label="Remover", style=discord.ButtonStyle.red, custom_id="painel_btn_remover")
+        self.excluir = ui.Button(label="Excluir", style=discord.ButtonStyle.danger, custom_id="painel_btn_excluir")
         self.add_item(self.aprovar)
         self.add_item(self.remover)
         self.add_item(self.excluir)
 
     async def on_submit(self, interaction: discord.Interaction):
+        filtro_digitado = self.filtro_input.value or ""
+        membros_filtrados = filtrar_membros(self.guild, filtro_digitado)
+        if not membros_filtrados:
+            await interaction.response.send_message("Nenhum membro encontrado com esse filtro.", ephemeral=True)
+            return
+
         membro_id = int(self.membros_select.values[0])
         membro = self.guild.get_member(membro_id)
+        if not membro:
+            await interaction.response.send_message("Membro não encontrado.", ephemeral=True)
+            return
 
         # ALTERAR PATENTE
         patente_id = int(self.patente_select.values[0])
@@ -112,9 +132,8 @@ class PainelView(ui.View):
         super().__init__(timeout=None)
         self.guild = guild
         self.filtro_membro = filtro_membro
-        self.add_item(ui.Button(label="Abrir Painel", style=discord.ButtonStyle.blurple, custom_id="abrir_modal"))
 
-    @ui.button(label="Abrir Painel", style=discord.ButtonStyle.blurple, custom_id="abrir_modal")
+    @ui.button(label="Abrir Painel", style=discord.ButtonStyle.blurple, custom_id="painel_btn_abrir")
     async def abrir_modal(self, button: ui.Button, interaction: discord.Interaction):
         await interaction.response.send_modal(PainelModal(self.guild, self.filtro_membro))
 
